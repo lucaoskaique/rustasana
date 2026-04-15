@@ -4,6 +4,7 @@ pub mod config;
 pub mod done;
 pub mod download;
 pub mod due;
+pub mod install_skill;
 pub mod task;
 pub mod tasks;
 pub mod workspaces;

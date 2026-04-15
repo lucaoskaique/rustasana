@@ -10,11 +10,7 @@ pub fn run() -> Result<()> {
 
     println!("Workspaces:");
     for ws in &me.workspaces {
-        let marker = if ws.gid == config.workspace {
-            "*"
-        } else {
-            " "
-        };
+        let marker = if ws.gid == config.workspace { "*" } else { " " };
         println!("{} {} {}", marker, ws.gid, ws.name);
     }
 

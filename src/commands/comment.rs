@@ -11,7 +11,8 @@ pub fn run(index: usize) -> Result<()> {
     let task_id = find_task_id(Some(index))?;
 
     // Open editor for comment
-    let initial_content = "\n# Write your comment above this line\n# Lines starting with # will be ignored";
+    let initial_content =
+        "\n# Write your comment above this line\n# Lines starting with # will be ignored";
     let content = utils::open_editor(initial_content)?;
 
     // Filter out comment lines and empty lines

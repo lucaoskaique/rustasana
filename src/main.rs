@@ -94,6 +94,13 @@ enum Commands {
         #[arg(short, long)]
         output: Option<String>,
     },
+
+    /// Install AI agent skill globally for OpenCode, Claude, Cursor, etc.
+    InstallSkill {
+        /// Force overwrite existing skill
+        #[arg(short, long)]
+        force: bool,
+    },
 }
 
 fn main() -> Result<()> {
@@ -117,5 +124,6 @@ fn main() -> Result<()> {
             attachment,
             output,
         } => commands::download::run(task_index, attachment, output),
+        Commands::InstallSkill { force } => commands::install_skill::run(force),
     }
 }
