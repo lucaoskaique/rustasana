@@ -1,0 +1,196 @@
+use crate::config::Config;
+use crate::models::{Attachment, DataWrapper, Me, Story, Task};
+use anyhow::{Context, Result};
+use reqwest::blocking::Client;
+use serde_json::json;
+use std::io::Write;
+
+const API_BASE: &str = "https://app.asana.com/api/1.0";
+const USER_AGENT: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) \
+                          AppleWebKit/537.36 (KHTML, like Gecko) \
+                          Chrome/36.0.1985.125 Safari/537.36";
+
+pub struct ApiClient {
+    client: Client,
+    token: String,
+}
+
+impl ApiClient {
+    pub fn new(config: &Config) -> Result<Self> {
+        let client = Client::builder()
+            .user_agent(USER_AGENT)
+            .build()
+            .context("Failed to create HTTP client")?;
+
+        Ok(Self {
+            client,
+            token: config.personal_access_token.clone(),
+        })
+    }
+
+    fn get(&self, path: &str) -> Result<String> {
+        let url = format!("{}{}", API_BASE, path);
+        let response = self
+            .client
+            .get(&url)
+            .bearer_auth(&self.token)
+            .send()
+            .context("Failed to send GET request")?;
+
+        self.handle_response(response)
+    }
+
+    fn post(&self, path: &str, data: serde_json::Value) -> Result<String> {
+        let url = format!("{}{}", API_BASE, path);
+        let response = self
+            .client
+            .post(&url)
+            .bearer_auth(&self.token)
+            .json(&data)
+            .send()
+            .context("Failed to send POST request")?;
+
+        self.handle_response(response)
+    }
+
+    fn put(&self, path: &str, data: serde_json::Value) -> Result<String> {
+        let url = format!("{}{}", API_BASE, path);
+        let response = self
+            .client
+            .put(&url)
+            .bearer_auth(&self.token)
+            .json(&data)
+            .send()
+            .context("Failed to send PUT request")?;
+
+        self.handle_response(response)
+    }
+
+    fn handle_response(&self, response: reqwest::blocking::Response) -> Result<String> {
+        let status = response.status();
+        let body = response.text().context("Failed to read response body")?;
+
+        if status.is_success() {
+            Ok(body)
+        } else {
+            anyhow::bail!("API request failed with status {}: {}", status, body)
+        }
+    }
+
+    pub fn get_me(&self) -> Result<Me> {
+        let body = self.get("/users/me")?;
+        let wrapper: DataWrapper<Me> =
+            serde_json::from_str(&body).context("Failed to parse user data")?;
+        Ok(wrapper.data)
+    }
+
+    pub fn get_tasks(&self, workspace: &str, with_completed: bool) -> Result<Vec<Task>> {
+        let path = format!(
+            "/tasks?workspace={}&assignee=me&opt_fields=name,completed,due_on&completed={}",
+            workspace, with_completed
+        );
+        let body = self.get(&path)?;
+        let wrapper: DataWrapper<Vec<Task>> =
+            serde_json::from_str(&body).context("Failed to parse tasks")?;
+
+        // Sort tasks by due date
+        let mut tasks = wrapper.data;
+        tasks.sort_by(|a, b| match (&a.due_on, &b.due_on) {
+            (Some(a_due), Some(b_due)) => a_due.cmp(b_due),
+            (Some(_), None) => std::cmp::Ordering::Less,
+            (None, Some(_)) => std::cmp::Ordering::Greater,
+            (None, None) => std::cmp::Ordering::Equal,
+        });
+
+        Ok(tasks)
+    }
+
+    pub fn get_task(&self, task_id: &str) -> Result<Task> {
+        let path = format!("/tasks/{}", task_id);
+        let body = self.get(&path)?;
+        let wrapper: DataWrapper<Task> =
+            serde_json::from_str(&body).context("Failed to parse task")?;
+        Ok(wrapper.data)
+    }
+
+    pub fn get_stories(&self, task_id: &str) -> Result<Vec<Story>> {
+        let path = format!("/tasks/{}/stories", task_id);
+        let body = self.get(&path)?;
+        let wrapper: DataWrapper<Vec<Story>> =
+            serde_json::from_str(&body).context("Failed to parse stories")?;
+        Ok(wrapper.data)
+    }
+
+    pub fn add_comment(&self, task_id: &str, text: &str) -> Result<()> {
+        let path = format!("/tasks/{}/stories", task_id);
+        let data = json!({
+            "data": {
+                "text": text
+            }
+        });
+        self.post(&path, data)?;
+        Ok(())
+    }
+
+    pub fn update_task(&self, task_id: &str, key: &str, value: serde_json::Value) -> Result<Task> {
+        let path = format!("/tasks/{}", task_id);
+        let data = json!({
+            "data": {
+                key: value
+            }
+        });
+        let body = self.put(&path, data)?;
+        let wrapper: DataWrapper<Task> =
+            serde_json::from_str(&body).context("Failed to parse updated task")?;
+        Ok(wrapper.data)
+    }
+
+    pub fn complete_task(&self, task_id: &str) -> Result<Task> {
+        self.update_task(task_id, "completed", json!(true))
+    }
+
+    pub fn set_due_date(&self, task_id: &str, due_on: &str) -> Result<Task> {
+        self.update_task(task_id, "due_on", json!(due_on))
+    }
+
+    pub fn get_attachments(&self, task_id: &str) -> Result<Vec<Attachment>> {
+        let path = format!("/tasks/{}/attachments", task_id);
+        let body = self.get(&path)?;
+        let wrapper: DataWrapper<Vec<Attachment>> =
+            serde_json::from_str(&body).context("Failed to parse attachments")?;
+        Ok(wrapper.data)
+    }
+
+    pub fn get_attachment(&self, attachment_id: &str) -> Result<Attachment> {
+        let path = format!("/attachments/{}", attachment_id);
+        let body = self.get(&path)?;
+        let wrapper: DataWrapper<Attachment> =
+            serde_json::from_str(&body).context("Failed to parse attachment")?;
+        Ok(wrapper.data)
+    }
+
+    pub fn download_attachment(&self, url: &str, output_path: &std::path::Path) -> Result<()> {
+        let response = self
+            .client
+            .get(url)
+            .bearer_auth(&self.token)
+            .send()
+            .context("Failed to download attachment")?;
+
+        if !response.status().is_success() {
+            anyhow::bail!("Failed to download attachment: {}", response.status());
+        }
+
+        let mut file = std::fs::File::create(output_path)
+            .with_context(|| format!("Failed to create file: {}", output_path.display()))?;
+
+        let bytes = response
+            .bytes()
+            .context("Failed to read attachment bytes")?;
+
+        file.write_all(&bytes)
+            .context("Failed to write attachment to file")?;
+
+        Ok(())
+    }
+}
