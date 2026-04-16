@@ -10,7 +10,7 @@ use clap::{Parser, Subcommand};
 #[derive(Parser)]
 #[command(name = "rustasana")]
 #[command(about = "Rustasana - A blazingly fast Asana CLI client written in Rust", long_about = None)]
-#[command(version = "0.3.0")]
+#[command(version = "0.3.2")]
 struct Cli {
     #[command(subcommand)]
     command: Commands,

@@ -6,7 +6,7 @@ compatibility: opencode
 metadata:
   category: productivity
   tool: rustasana
-  version: 0.3.0
+  version: 0.3.2
 ---
 
 ## What I do
@@ -38,6 +38,9 @@ Use this skill when you need to:
 The `rustasana` CLI tool must be installed and configured:
 
 ```bash
+# Install from crates.io (recommended)
+cargo install rustasana
+
 # Check if rustasana is installed
 rustasana --version
 
@@ -46,7 +49,7 @@ rustasana config
 ```
 
 You'll need:
-- Rustasana CLI installed (`cargo install rustasana` or built from source)
+- Rustasana CLI installed from crates.io: https://crates.io/crates/rustasana
 - Asana Personal Access Token (get from https://app.asana.com/-/account_api)
 - At least one Asana workspace
 

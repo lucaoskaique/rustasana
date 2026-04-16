@@ -10,7 +10,6 @@ pub mod task;
 pub mod tasks;
 pub mod workspaces;
 
-use crate::models::Task;
 use crate::utils;
 use anyhow::Result;
 use std::fs;
@@ -40,19 +39,6 @@ pub fn read_cache() -> Result<Vec<(usize, String, String, String)>> {
     }
 
     Ok(entries)
-}
-
-pub fn write_cache(tasks: &[Task]) -> Result<()> {
-    let cache_path = utils::cache_file()?;
-    let mut content = String::new();
-
-    for (i, task) in tasks.iter().enumerate() {
-        let due_on = task.due_on.as_deref().unwrap_or("");
-        content.push_str(&format!("{}:{}:{}:{}\n", i, task.gid, due_on, task.name));
-    }
-
-    fs::write(cache_path, content)?;
-    Ok(())
 }
 
 pub fn find_task_id(index: Option<usize>) -> Result<String> {

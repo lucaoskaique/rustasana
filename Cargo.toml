@@ -1,6 +1,6 @@
 [package]
 name = "rustasana"
-version = "0.3.0"
+version = "0.3.2"
 edition = "2021"
 authors = ["Lucas Kaique <me@lucaskaique.com.br>"]
 description = "A blazingly fast command-line interface for Asana written in Rust"

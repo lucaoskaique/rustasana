@@ -15,6 +15,12 @@ A blazingly fast command-line interface for [Asana](https://asana.com/) written 
 
 ## Installation
 
+### From crates.io (Recommended)
+
+```bash
+cargo install rustasana
+```
+
 ### Prerequisites
 
 - Rust 1.70 or higher ([Install Rust](https://www.rust-lang.org/tools/install))
@@ -28,7 +34,7 @@ cargo build --release
 
 The binary will be available at `target/release/rustasana`.
 
-### Install globally
+### Install globally from source
 
 ```bash
 cargo install --path .
