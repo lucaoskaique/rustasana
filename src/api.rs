@@ -84,11 +84,37 @@ impl ApiClient {
         Ok(wrapper.data)
     }
 
-    pub fn get_tasks(&self, workspace: &str, with_completed: bool) -> Result<Vec<Task>> {
-        let path = format!(
-            "/tasks?workspace={}&assignee=me&opt_fields=name,completed,due_on&completed={}",
-            workspace, with_completed
-        );
+    pub fn get_projects(&self, workspace: &str) -> Result<Vec<crate::models::Base>> {
+        let path = format!("/workspaces/{}/projects", workspace);
+        let body = self.get(&path)?;
+        let wrapper: DataWrapper<Vec<crate::models::Base>> =
+            serde_json::from_str(&body).context("Failed to parse projects")?;
+        Ok(wrapper.data)
+    }
+
+    pub fn get_tasks(
+        &self,
+        workspace: &str,
+        with_completed: bool,
+        assignee_filter: Option<&str>,
+    ) -> Result<Vec<Task>> {
+        let path = match assignee_filter {
+            Some(assignee) => {
+                // For specific assignee (GID)
+                format!(
+                    "/tasks?workspace={}&assignee={}&opt_fields=name,completed,due_on,assignee,assignee.name&completed={}",
+                    workspace, assignee, with_completed
+                )
+            }
+            None => {
+                // Default: fetch tasks assigned to me
+                format!(
+                    "/tasks?workspace={}&assignee=me&opt_fields=name,completed,due_on,assignee,assignee.name&completed={}",
+                    workspace, with_completed
+                )
+            }
+        };
+
         let body = self.get(&path)?;
         let wrapper: DataWrapper<Vec<Task>> =
             serde_json::from_str(&body).context("Failed to parse tasks")?;
@@ -103,6 +129,62 @@ impl ApiClient {
         });
 
         Ok(tasks)
+    }
+
+    pub fn get_project_tasks(&self, project_id: &str, with_completed: bool) -> Result<Vec<Task>> {
+        let mut all_tasks = Vec::new();
+        let mut offset: Option<String> = None;
+
+        loop {
+            let path = if let Some(ref offset_val) = offset {
+                format!(
+                    "/projects/{}/tasks?opt_fields=name,completed,due_on,assignee,assignee.name&completed={}&limit=100&offset={}",
+                    project_id, with_completed, offset_val
+                )
+            } else {
+                format!(
+                    "/projects/{}/tasks?opt_fields=name,completed,due_on,assignee,assignee.name&completed={}&limit=100",
+                    project_id, with_completed
+                )
+            };
+
+            let body = self.get(&path)?;
+
+            // Parse response with next_page info
+            let response: serde_json::Value =
+                serde_json::from_str(&body).context("Failed to parse project tasks response")?;
+
+            // Extract tasks
+            if let Some(data) = response.get("data") {
+                let tasks: Vec<Task> = serde_json::from_value(data.clone())
+                    .context("Failed to parse tasks from data")?;
+                all_tasks.extend(tasks);
+            }
+
+            // Check for next page
+            if let Some(next_page) = response.get("next_page") {
+                if next_page.is_null() {
+                    break;
+                }
+                if let Some(next_offset) = next_page.get("offset").and_then(|o| o.as_str()) {
+                    offset = Some(next_offset.to_string());
+                } else {
+                    break;
+                }
+            } else {
+                break;
+            }
+        }
+
+        // Sort tasks by due date
+        all_tasks.sort_by(|a, b| match (&a.due_on, &b.due_on) {
+            (Some(a_due), Some(b_due)) => a_due.cmp(b_due),
+            (Some(_), None) => std::cmp::Ordering::Less,
+            (None, Some(_)) => std::cmp::Ordering::Greater,
+            (None, None) => std::cmp::Ordering::Equal,
+        });
+
+        Ok(all_tasks)
     }
 
     pub fn get_task(&self, task_id: &str) -> Result<Task> {

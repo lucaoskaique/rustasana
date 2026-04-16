@@ -6,7 +6,7 @@ compatibility: opencode
 metadata:
   category: productivity
   tool: rustasana
-  version: 0.1.0
+  version: 0.3.0
 ---
 
 ## What I do
@@ -14,6 +14,7 @@ metadata:
 I help you manage your Asana tasks directly from the terminal using the `rustasana` CLI tool. I can:
 
 - List all your assigned tasks with due dates
+- Filter tasks by assignee (all tasks, unassigned, or specific user)
 - View detailed task information including notes and comments
 - Mark tasks as complete
 - Set or update due dates (supports natural language like "today" or "tomorrow")
@@ -51,22 +52,63 @@ You'll need:
 
 ## Available commands
 
-### List tasks
+### List projects
 ```bash
-rustasana tasks           # List all tasks (uses cache)
-rustasana ts              # Short alias
-rustasana tasks --refresh # Force refresh from API
-rustasana tasks --no-cache # Bypass cache completely
+rustasana projects        # List all projects in workspace
+rustasana p               # Short alias
 ```
 
 Output format:
 ```
- 0 [ 2024-04-20 ] Complete project documentation
- 1 [ 2024-04-21 ] Review pull requests
- 2 [            ] Update README
+Projects:
+  1208684367073999 QA
+  1208704905694979 Product Roadmap
+  1210197328049310 Pixel Pioneers
+  1211411822893284 S3
+```
+
+### List tasks
+```bash
+rustasana tasks                 # List your assigned tasks (uses cache)
+rustasana ts                    # Short alias
+rustasana tasks --refresh       # Force refresh from API
+rustasana tasks --no-cache      # Bypass cache completely
+
+# Filter by project (shows ALL tasks in project)
+rustasana tasks --project 1210197328049310  # By project GID
+rustasana tasks -p 1210197328049310         # Short flag
+
+# Filter by assignee
+rustasana tasks --assignee 1234  # List tasks for specific user (by GID)
+
+# Combine flags
+rustasana tasks -p 1210197328049310 --refresh  # Refresh project tasks
+rustasana tasks --assignee 1234 --no-cache     # Fresh assignee tasks
+```
+
+Output format (default - your tasks):
+```
+ 0 [ 2024-04-20 ] Complete project documentation                  [@john_doe]
+ 1 [ 2024-04-21 ] Review pull requests                            [@john_doe]
+ 2 [            ] Update README                                    [@john_doe]
+```
+
+Output format (with --project - all tasks in project):
+```
+ 0 [ 2024-04-20 ] Complete project documentation                  [@john_doe]
+ 1 [ 2024-04-21 ] Review pull requests                            [@jane_smith]
+ 2 [            ] Update README                                    [unassigned]
+ 3 [ 2024-04-22 ] Fix bug in auth                                 [unassigned]
+```
+
+Output format (with --assignee - specific user's tasks):
+```
+ 0 [ 2024-04-20 ] Complete documentation                          [@jane_smith]
+ 1 [ 2024-04-21 ] Review pull requests                            [@jane_smith]
 ```
 
 Task indexes start at 0 and are used for all other commands.
+Note: Indexes are only valid within the same cache context (e.g., project tasks vs. your tasks).
 
 ### View task details
 ```bash
@@ -118,8 +160,17 @@ rustasana w               # Short alias
 
 ### Check what to work on
 ```bash
-# See all tasks
+# See your assigned tasks
 rustasana tasks
+
+# Find a project to work on
+rustasana projects
+
+# See all tasks in a specific project
+rustasana tasks -p 1210197328049310
+
+# Find available work (unassigned tasks in project)
+rustasana tasks -p 1210197328049310 | grep unassigned
 
 # View first task details
 rustasana task 0 -v
@@ -146,10 +197,17 @@ rustasana comment 2
 ## Important notes
 
 - **Cache**: Task list is cached for 5 minutes. Use `--refresh` to update.
-- **Indexes**: Task indexes are stable within the cache period but may change after refresh.
-- **Configuration**: Settings stored in `~/.asana.yml`, cache in `~/.asana.cache`
+- **Filter caches**: Different cache files for different filters:
+  - `~/.asana.cache` - Your assigned tasks
+  - `~/.asana.cache.project.<project_gid>` - All tasks from a specific project
+  - `~/.asana.cache.<user_gid>` - Tasks for a specific user
+- **Indexes**: Task indexes are stable within the cache period but may change after refresh or when switching filters
+- **Index scope**: Task indices from `--project` are only valid when viewing that project's tasks
+- **Configuration**: Settings stored in `~/.asana.yml`
 - **Editor**: Set `$EDITOR` environment variable for comment editing (default: vi/notepad)
 - **Browser**: Set `$BROWSER` environment variable or uses system default
+- **Assignee display**: Tasks show assignee names in brackets (e.g., [@username] or [unassigned])
+- **Pagination**: Large projects (1000+ tasks) are automatically paginated and fetched completely
 
 ## Common patterns
 
@@ -205,6 +263,28 @@ export PATH="$HOME/.cargo/bin:$PATH"
 rustasana tasks --refresh
 ```
 
+**"Project not found"**
+```bash
+# Make sure you're using a valid project GID
+# List all projects first
+rustasana projects
+```
+
+**"Assignee not found"**
+```bash
+# Ensure you're using a valid user GID (not email or name)
+# Find GID by viewing a task in JSON format
+rustasana task 0 --json | grep -A 2 '"assignee"'
+```
+
+**"Task not found at index X"**
+```bash
+# Cache may be stale, or you're using a different filter
+# Refresh with the same filter you used to list tasks
+rustasana tasks --refresh              # For your tasks
+rustasana tasks -p <project_gid> --refresh  # For project tasks
+```
+
 **Want to reconfigure**
 ```bash
 # Just run config again with new token
@@ -215,12 +295,16 @@ rustasana config
 
 When using this skill:
 
-1. **Always list tasks first** before operating on specific tasks by index
-2. **Check task details** with `-v` flag when context is needed
-3. **Use cache wisely** - refresh only when you need current data
-4. **Respect indexes** - they're 0-based and can change after refresh
-5. **Combine with git** - relate tasks to branches/commits for context
-6. **Natural due dates** - prefer "today"/"tomorrow" over specific dates when appropriate
+1. **List projects first** to find the right project GID before fetching tasks
+2. **Use project filtering** - `-p <project_gid>` to see entire project backlogs
+3. **Always list tasks first** before operating on specific tasks by index
+4. **Match your context** - if you listed with `-p`, viewing tasks requires that same cache
+5. **Check task details** with `-v` flag when context is needed
+6. **Use cache wisely** - refresh only when you need current data
+7. **Respect indexes** - they're 0-based and only valid within the same cache context
+8. **Combine with git** - relate tasks to branches/commits for context
+9. **Natural due dates** - prefer "today"/"tomorrow" over specific dates when appropriate
+10. **Large projects** - pagination is automatic, no need to worry about task limits
 
 ## Example workflows for agents
 
@@ -241,14 +325,20 @@ rustasana done 0
 
 ### Sprint planning
 ```bash
-# 1. List all tasks
-rustasana tasks
+# 1. Find the sprint project
+rustasana projects | grep "Sprint"
 
-# 2. Review high-priority tasks
+# 2. List all tasks in the sprint project
+rustasana tasks -p 1210197328049310
+
+# 3. Find unassigned work
+rustasana tasks -p 1210197328049310 | grep unassigned
+
+# 4. Review high-priority tasks
 rustasana task 0 -v
 rustasana task 1 -v
 
-# 3. Set due dates
+# 5. Set due dates
 rustasana due 0 today
 rustasana due 1 tomorrow
 ```

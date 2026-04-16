@@ -6,6 +6,7 @@ A blazingly fast command-line interface for [Asana](https://asana.com/) written 
 
 - 🚀 Fast and efficient CLI for Asana
 - 💾 Local caching for quick task listing
+- 👥 Filter tasks by assignee (all, unassigned, or specific user)
 - 📝 Add comments via your favorite editor
 - 🌐 Open tasks directly in your browser
 - ✅ Mark tasks as complete
@@ -58,28 +59,73 @@ Your configuration will be saved to `~/.asana.yml`.
 
 ### Commands
 
+#### List Projects
+
+```bash
+# List all projects in your workspace
+$ rustasana projects
+
+# Or use the short alias
+$ rustasana p
+```
+
+Output:
+```
+Projects:
+  1208684367073999 QA
+  1208704905694979 Product Roadmap
+  1210197328049310 Pixel Pioneers
+  1211411822893284 S3
+```
+
 #### List Tasks
 
 ```bash
-# List all your tasks
+# List your assigned tasks (default)
 $ rustasana tasks
 
 # Or use the short alias
 $ rustasana ts
+
+# List all tasks from a specific project (by project GID)
+$ rustasana ts --project 1210197328049310
+$ rustasana ts -p 1210197328049310
+
+# List tasks for a specific user (by user GID)
+$ rustasana ts --assignee 1234567890123456
 
 # Bypass cache
 $ rustasana ts --no-cache
 
 # Refresh cache
 $ rustasana ts --refresh
+
+# Combine flags
+$ rustasana ts -p 1210197328049310 --refresh
+$ rustasana ts --assignee 1234567890123456 --no-cache
 ```
 
-Output:
+Output (default view - your tasks):
 ```
- 0 [ 2024-08-13 ] Write README
- 1 [ 2024-08-18 ] Buy gift for coworkers
- 2 [ 2024-08-29 ] Read "Unweaving the Rainbow"
- 3 [            ] haircut
+ 0 [ 2024-08-13 ] Write README                                       [@john_doe]
+ 1 [ 2024-08-18 ] Buy gift for coworkers                             [@john_doe]
+ 2 [ 2024-08-29 ] Read "Unweaving the Rainbow"                       [@john_doe]
+ 3 [            ] haircut                                             [@john_doe]
+```
+
+Output (with --project flag - all tasks in project):
+```
+ 0 [ 2024-08-13 ] Complete documentation                             [@john_doe]
+ 1 [ 2024-08-21 ] Review pull requests                               [@jane_smith]
+ 2 [            ] Update README                                       [unassigned]
+ 3 [ 2024-08-22 ] Fix bug in auth                                    [unassigned]
+ 4 [            ] Refactor database layer                            [@john_doe]
+```
+
+Output (with --assignee flag - specific user's tasks):
+```
+ 0 [ 2024-08-13 ] Complete documentation                             [@jane_smith]
+ 1 [ 2024-08-21 ] Review pull requests                               [@jane_smith]
 ```
 
 #### View Task Details
@@ -182,6 +228,7 @@ All commands have short aliases for convenience:
 |---------|-------|
 | `config` | `c` |
 | `workspaces` | `w` |
+| `projects` | `p` |
 | `tasks` | `ts` |
 | `task` | `t` |
 | `comment` | `cm` |
@@ -206,7 +253,11 @@ workspace: "4444444444444"
 
 ### Cache
 
-Task lists are cached at `~/.asana.cache` for 5 minutes to reduce API calls and improve performance.
+Task lists are cached at `~/.asana.cache` (or `~/.asana.cache.<filter>` for filtered views) for 5 minutes to reduce API calls and improve performance. Different cache files are used for different filters:
+
+- `~/.asana.cache` - Tasks assigned to you (default)
+- `~/.asana.cache.project.<project_gid>` - All tasks from a specific project
+- `~/.asana.cache.<user_gid>` - Tasks for a specific user
 
 ## Environment Variables
 
@@ -223,8 +274,11 @@ This Rust implementation provides **100% feature parity** with the original Go v
 - **Performance**: Compiled binary is fast and has low memory footprint
 - **Enhanced UX**: Current workspace indicator in workspace listing
 - **Attachment support**: View and download task attachments
+- **Assignee visibility**: All task listings show assignee information
+- **Project-based filtering**: View all tasks from any project (with automatic pagination)
+- **Flexible filtering**: Filter by assignee or view entire project backlogs
 
-All commands from the original Go implementation are supported, and config/cache files are fully compatible between both versions.
+All commands from the original Go implementation are supported, and config/cache files are compatible between both versions (note: filtered cache files and assignee display are new features in this Rust version).
 
 ## Project Structure
 
@@ -313,7 +367,30 @@ export EDITOR=vim  # or nano, emacs, code, etc.
 
 ### "Task not found at index" error
 
-Your cache might be stale. Run `rustasana tasks --refresh` to update the cache.
+Your cache might be stale, or you're using a different filter than when you listed tasks. Run the same command with `--refresh` to update the cache:
+
+```bash
+rustasana tasks --refresh  # For your tasks
+rustasana tasks -p <project_gid> --refresh  # For project tasks
+```
+
+Note: Task indices are only valid within the same cache context. If you list tasks with `-p 123`, you must use that same cache to view tasks by index.
+
+### "Project not found" error
+
+Make sure to use a valid project GID. List all projects first:
+
+```bash
+rustasana projects
+```
+
+### "Assignee not found" error
+
+When using `--assignee`, make sure to provide a valid user GID (not email or display name). You can find user GIDs by viewing a task in JSON format:
+
+```bash
+rustasana task 0 --json | grep -A 2 '"assignee"'
+```
 
 ## Roadmap
 

@@ -12,8 +12,36 @@ pub fn cache_file() -> Result<PathBuf> {
     Ok(home.join(".asana.cache"))
 }
 
+pub fn cache_file_with_key(key: &str) -> Result<PathBuf> {
+    let home = dirs::home_dir().context("Unable to find home directory")?;
+    if key == "me" {
+        Ok(home.join(".asana.cache"))
+    } else {
+        Ok(home.join(format!(".asana.cache.{}", key)))
+    }
+}
+
 pub fn is_cache_older(duration_secs: u64) -> Result<bool> {
     let cache_path = cache_file()?;
+
+    if !cache_path.exists() {
+        return Ok(true);
+    }
+
+    let metadata = fs::metadata(&cache_path).context("Failed to read cache metadata")?;
+    let modified = metadata
+        .modified()
+        .context("Failed to get cache modification time")?;
+
+    let elapsed = SystemTime::now()
+        .duration_since(modified)
+        .context("Failed to calculate time elapsed")?;
+
+    Ok(elapsed.as_secs() > duration_secs)
+}
+
+pub fn is_cache_older_with_key(duration_secs: u64, key: &str) -> Result<bool> {
+    let cache_path = cache_file_with_key(key)?;
 
     if !cache_path.exists() {
         return Ok(true);

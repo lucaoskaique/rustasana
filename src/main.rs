@@ -10,7 +10,7 @@ use clap::{Parser, Subcommand};
 #[derive(Parser)]
 #[command(name = "rustasana")]
 #[command(about = "Rustasana - A blazingly fast Asana CLI client written in Rust", long_about = None)]
-#[command(version = "0.1.0")]
+#[command(version = "0.3.0")]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -26,6 +26,10 @@ enum Commands {
     #[command(alias = "w")]
     Workspaces,
 
+    /// List projects
+    #[command(alias = "p")]
+    Projects,
+
     /// Get tasks
     #[command(alias = "ts")]
     Tasks {
@@ -36,6 +40,14 @@ enum Commands {
         /// Update cache
         #[arg(short, long)]
         refresh: bool,
+
+        /// Filter by assignee (user GID)
+        #[arg(long, conflicts_with = "project")]
+        assignee: Option<String>,
+
+        /// Fetch all tasks from a specific project (project GID)
+        #[arg(short, long, conflicts_with = "assignee")]
+        project: Option<String>,
     },
 
     /// Get a task
@@ -109,7 +121,13 @@ fn main() -> Result<()> {
     match cli.command {
         Commands::Config => commands::config::run(),
         Commands::Workspaces => commands::workspaces::run(),
-        Commands::Tasks { no_cache, refresh } => commands::tasks::run(no_cache, refresh),
+        Commands::Projects => commands::projects::run(),
+        Commands::Tasks {
+            no_cache,
+            refresh,
+            assignee,
+            project,
+        } => commands::tasks::run(no_cache, refresh, assignee, project),
         Commands::Task {
             index,
             verbose,
