@@ -2,6 +2,14 @@
 name = "rustasana"
 version = "0.3.0"
 edition = "2021"
+authors = ["Lucas Kaique <me@lucaskaique.com.br>"]
+description = "A blazingly fast command-line interface for Asana written in Rust"
+readme = "README.md"
+homepage = "https://github.com/lucaoskaique/rustasana"
+repository = "https://github.com/lucaoskaique/rustasana"
+license = "MIT"
+keywords = ["asana", "cli", "task-management", "productivity", "terminal"]
+categories = ["command-line-utilities"]
 
 [[bin]]
 name = "rustasana"
