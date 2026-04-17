@@ -10,6 +10,7 @@ pub fn run(
     refresh: bool,
     assignee: Option<String>,
     project: Option<String>,
+    all: bool,
 ) -> Result<()> {
     // Determine cache key based on filter mode
     let cache_key = if let Some(ref project_id) = project {
@@ -21,9 +22,9 @@ pub fn run(
     };
 
     if no_cache {
-        fetch_and_display(false, assignee, project)?;
+        fetch_and_display(false, assignee, project, all)?;
     } else if utils::is_cache_older_with_key(CACHE_DURATION_SECS, &cache_key)? || refresh {
-        fetch_and_display(true, assignee, project)?;
+        fetch_and_display(true, assignee, project, all)?;
     } else {
         // Use cache
         let entries = read_cache_with_key(&cache_key)?;
@@ -46,6 +47,7 @@ fn fetch_and_display(
     save_cache: bool,
     assignee: Option<String>,
     project: Option<String>,
+    all: bool,
 ) -> Result<()> {
     let config = Config::load()?;
     let client = ApiClient::new(&config)?;
@@ -53,7 +55,7 @@ fn fetch_and_display(
     // Fetch tasks based on filter type
     let tasks = if let Some(ref project_id) = project {
         // Fetch all tasks from a specific project
-        match client.get_project_tasks(project_id, false) {
+        match client.get_project_tasks(project_id, all) {
             Ok(tasks) => tasks,
             Err(e) => {
                 let error_msg = e.to_string();
@@ -77,7 +79,7 @@ fn fetch_and_display(
         };
 
         // Fetch tasks with error handling
-        match client.get_tasks(&config.workspace, false, assignee_filter) {
+        match client.get_tasks(&config.workspace, all, assignee_filter) {
             Ok(tasks) => tasks,
             Err(e) => {
                 let error_msg = e.to_string();

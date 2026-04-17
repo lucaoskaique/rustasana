@@ -101,17 +101,35 @@ impl ApiClient {
         let path = match assignee_filter {
             Some(assignee) => {
                 // For specific assignee (GID)
-                format!(
-                    "/tasks?workspace={}&assignee={}&opt_fields=name,completed,due_on,assignee,assignee.name&completed={}",
-                    workspace, assignee, with_completed
-                )
+                if with_completed {
+                    // Include both completed and incomplete
+                    format!(
+                        "/tasks?workspace={}&assignee={}&opt_fields=name,completed,due_on,assignee,assignee.name",
+                        workspace, assignee
+                    )
+                } else {
+                    // Only incomplete tasks
+                    format!(
+                        "/tasks?workspace={}&assignee={}&opt_fields=name,completed,due_on,assignee,assignee.name&completed_since=now",
+                        workspace, assignee
+                    )
+                }
             }
             None => {
                 // Default: fetch tasks assigned to me
-                format!(
-                    "/tasks?workspace={}&assignee=me&opt_fields=name,completed,due_on,assignee,assignee.name&completed={}",
-                    workspace, with_completed
-                )
+                if with_completed {
+                    // Include both completed and incomplete
+                    format!(
+                        "/tasks?workspace={}&assignee=me&opt_fields=name,completed,due_on,assignee,assignee.name",
+                        workspace
+                    )
+                } else {
+                    // Only incomplete tasks
+                    format!(
+                        "/tasks?workspace={}&assignee=me&opt_fields=name,completed,due_on,assignee,assignee.name&completed_since=now",
+                        workspace
+                    )
+                }
             }
         };
 
@@ -136,16 +154,32 @@ impl ApiClient {
         let mut offset: Option<String> = None;
 
         loop {
-            let path = if let Some(ref offset_val) = offset {
-                format!(
-                    "/projects/{}/tasks?opt_fields=name,completed,due_on,assignee,assignee.name&completed={}&limit=100&offset={}",
-                    project_id, with_completed, offset_val
-                )
+            let path = if with_completed {
+                // Include both completed and incomplete tasks
+                if let Some(ref offset_val) = offset {
+                    format!(
+                        "/projects/{}/tasks?opt_fields=name,completed,due_on,assignee,assignee.name&limit=100&offset={}",
+                        project_id, offset_val
+                    )
+                } else {
+                    format!(
+                        "/projects/{}/tasks?opt_fields=name,completed,due_on,assignee,assignee.name&limit=100",
+                        project_id
+                    )
+                }
             } else {
-                format!(
-                    "/projects/{}/tasks?opt_fields=name,completed,due_on,assignee,assignee.name&completed={}&limit=100",
-                    project_id, with_completed
-                )
+                // Only incomplete tasks
+                if let Some(ref offset_val) = offset {
+                    format!(
+                        "/projects/{}/tasks?opt_fields=name,completed,due_on,assignee,assignee.name&completed_since=now&limit=100&offset={}",
+                        project_id, offset_val
+                    )
+                } else {
+                    format!(
+                        "/projects/{}/tasks?opt_fields=name,completed,due_on,assignee,assignee.name&completed_since=now&limit=100",
+                        project_id
+                    )
+                }
             };
 
             let body = self.get(&path)?;

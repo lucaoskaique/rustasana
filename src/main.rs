@@ -10,7 +10,7 @@ use clap::{Parser, Subcommand};
 #[derive(Parser)]
 #[command(name = "rustasana")]
 #[command(about = "Rustasana - A blazingly fast Asana CLI client written in Rust", long_about = None)]
-#[command(version = "0.5.0")]
+#[command(version = "0.6.0")]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -48,6 +48,10 @@ enum Commands {
         /// Fetch all tasks from a specific project (project GID)
         #[arg(short, long, conflicts_with = "assignee")]
         project: Option<String>,
+
+        /// Include completed tasks (default: incomplete only)
+        #[arg(short = 'a', long)]
+        all: bool,
     },
 
     /// Get a task
@@ -191,7 +195,8 @@ fn main() -> Result<()> {
             refresh,
             assignee,
             project,
-        } => commands::tasks::run(no_cache, refresh, assignee, project),
+            all,
+        } => commands::tasks::run(no_cache, refresh, assignee, project, all),
         Commands::Task {
             index,
             verbose,

@@ -6,7 +6,7 @@ compatibility: opencode
 metadata:
   category: productivity
   tool: rustasana
-  version: 0.5.0
+  version: 0.6.0
 ---
 
 ## What I do
@@ -74,14 +74,21 @@ Projects:
 
 ### List tasks
 ```bash
-rustasana tasks                 # List your assigned tasks (uses cache)
+rustasana tasks                 # List your assigned incomplete tasks (uses cache)
 rustasana ts                    # Short alias
 rustasana tasks --refresh       # Force refresh from API
 rustasana tasks --no-cache      # Bypass cache completely
 
-# Filter by project (shows ALL tasks in project)
+# Include completed tasks (default shows incomplete only)
+rustasana tasks --all           # Show all tasks including completed
+rustasana tasks -a              # Short flag for --all
+
+# Filter by project (shows incomplete tasks in project by default)
 rustasana tasks --project 1210197328049310  # By project GID
 rustasana tasks -p 1210197328049310         # Short flag
+
+# Show ALL tasks (including completed) in a project
+rustasana tasks -p 1210197328049310 --all
 
 # Filter by assignee
 rustasana tasks --assignee 1234  # List tasks for specific user (by GID)
@@ -89,16 +96,17 @@ rustasana tasks --assignee 1234  # List tasks for specific user (by GID)
 # Combine flags
 rustasana tasks -p 1210197328049310 --refresh  # Refresh project tasks
 rustasana tasks --assignee 1234 --no-cache     # Fresh assignee tasks
+rustasana tasks -p 1210197328049310 -a --no-cache  # All project tasks (fresh)
 ```
 
-Output format (default - your tasks):
+Output format (default - your incomplete tasks):
 ```
  0 [ 2024-04-20 ] Complete project documentation                  [@john_doe]
  1 [ 2024-04-21 ] Review pull requests                            [@john_doe]
  2 [            ] Update README                                    [@john_doe]
 ```
 
-Output format (with --project - all tasks in project):
+Output format (with --project - incomplete tasks in project):
 ```
  0 [ 2024-04-20 ] Complete project documentation                  [@john_doe]
  1 [ 2024-04-21 ] Review pull requests                            [@jane_smith]

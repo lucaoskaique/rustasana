@@ -7,6 +7,7 @@ A blazingly fast command-line interface for [Asana](https://asana.com/) written 
 - 🚀 Fast and efficient CLI for Asana
 - 💾 Local caching for quick task listing
 - 📁 Project-based task filtering with context-aware commands
+- ✅ Filter incomplete tasks (default) or include completed tasks with `--all`
 - 👥 Filter tasks by assignee (all, unassigned, or specific user)
 - 👤 Assign tasks to users or yourself
 - 📝 Add comments via your favorite editor
@@ -89,15 +90,22 @@ Projects:
 #### List Tasks
 
 ```bash
-# List your assigned tasks (default)
+# List your assigned tasks (default - incomplete only)
 $ rustasana tasks
 
 # Or use the short alias
 $ rustasana ts
 
-# List all tasks from a specific project (by project GID)
+# Include completed tasks
+$ rustasana ts --all
+$ rustasana ts -a
+
+# List all tasks from a specific project (by project GID - incomplete only by default)
 $ rustasana ts --project 1210197328049310
 $ rustasana ts -p 1210197328049310
+
+# List ALL tasks (including completed) from a project
+$ rustasana ts -p 1210197328049310 --all
 
 # List tasks for a specific user (by user GID)
 $ rustasana ts --assignee 1234567890123456
@@ -111,6 +119,7 @@ $ rustasana ts --refresh
 # Combine flags
 $ rustasana ts -p 1210197328049310 --refresh
 $ rustasana ts --assignee 1234567890123456 --no-cache
+$ rustasana ts -p 1210197328049310 --all --no-cache
 ```
 
 Output (default view - your tasks):
