@@ -10,7 +10,7 @@ use clap::{Parser, Subcommand};
 #[derive(Parser)]
 #[command(name = "rustasana")]
 #[command(about = "Rustasana - A blazingly fast Asana CLI client written in Rust", long_about = None)]
-#[command(version = "0.3.2")]
+#[command(version = "0.4.0")]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -78,6 +78,14 @@ enum Commands {
         index: usize,
     },
 
+    /// Assign task to a user
+    Assign {
+        /// Task index
+        index: usize,
+        /// User GID, 'me', 'null', or 'unassigned' (to unassign)
+        assignee: String,
+    },
+
     /// Set due date
     Due {
         /// Task index
@@ -135,6 +143,7 @@ fn main() -> Result<()> {
         } => commands::task::run(index, verbose, json),
         Commands::Comment { index } => commands::comment::run(index),
         Commands::Done { index } => commands::done::run(index),
+        Commands::Assign { index, assignee } => commands::assign::run(index, assignee),
         Commands::Due { index, date } => commands::due::run(index, &date),
         Commands::Browse { index } => commands::browse::run(index),
         Commands::Download {

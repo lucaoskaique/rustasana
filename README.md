@@ -7,6 +7,7 @@ A blazingly fast command-line interface for [Asana](https://asana.com/) written 
 - 🚀 Fast and efficient CLI for Asana
 - 💾 Local caching for quick task listing
 - 👥 Filter tasks by assignee (all, unassigned, or specific user)
+- 👤 Assign tasks to users or yourself
 - 📝 Add comments via your favorite editor
 - 🌐 Open tasks directly in your browser
 - ✅ Mark tasks as complete
@@ -155,6 +156,26 @@ $ rustasana task 0 --json
 ```bash
 $ rustasana done 2
 Task marked as completed!
+```
+
+#### Assign Task
+
+```bash
+# Assign task to yourself
+$ rustasana assign 2 me
+Task assigned to: John Doe
+
+# Assign task to another user (by user GID)
+$ rustasana assign 2 1234567890123456
+Task assigned to: Jane Smith
+
+# Unassign a task
+$ rustasana assign 2 null
+Task unassigned (set to no assignee)
+
+# Alternative unassign syntax
+$ rustasana assign 2 unassigned
+Task unassigned (set to no assignee)
 ```
 
 #### Set Due Date

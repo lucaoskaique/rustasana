@@ -235,6 +235,16 @@ impl ApiClient {
         self.update_task(task_id, "due_on", json!(due_on))
     }
 
+    pub fn assign_task(&self, task_id: &str, assignee: &str) -> Result<Task> {
+        // assignee can be a user GID or "me" or "null" for unassigned
+        let assignee_value = if assignee == "null" || assignee == "unassigned" {
+            json!(null)
+        } else {
+            json!(assignee)
+        };
+        self.update_task(task_id, "assignee", assignee_value)
+    }
+
     pub fn get_attachments(&self, task_id: &str) -> Result<Vec<Attachment>> {
         let path = format!("/tasks/{}/attachments", task_id);
         let body = self.get(&path)?;

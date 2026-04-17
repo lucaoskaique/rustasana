@@ -6,7 +6,7 @@ compatibility: opencode
 metadata:
   category: productivity
   tool: rustasana
-  version: 0.3.2
+  version: 0.4.0
 ---
 
 ## What I do
@@ -17,6 +17,7 @@ I help you manage your Asana tasks directly from the terminal using the `rustasa
 - Filter tasks by assignee (all tasks, unassigned, or specific user)
 - View detailed task information including notes and comments
 - Mark tasks as complete
+- Assign tasks to users or unassign them
 - Set or update due dates (supports natural language like "today" or "tomorrow")
 - Add comments to tasks via your editor
 - Open tasks in your web browser
@@ -29,6 +30,7 @@ Use this skill when you need to:
 
 - Check your Asana tasks without leaving the terminal
 - Update task status while working on code
+- Assign tasks to team members or yourself
 - Review task details and comments
 - Manage task due dates
 - Coordinate code work with Asana project management
@@ -125,6 +127,16 @@ rustasana task 0 --json   # Output as JSON
 ```bash
 rustasana done 0          # Mark task 0 as complete
 ```
+
+### Assign task
+```bash
+rustasana assign 0 me                   # Assign task 0 to yourself
+rustasana assign 1 1234567890123456     # Assign task 1 to user by GID
+rustasana assign 2 null                 # Unassign task 2
+rustasana assign 2 unassigned           # Alternative unassign syntax
+```
+
+Note: To get a user's GID, view a task in JSON format with `rustasana task <index> --json` and look at the assignee field.
 
 ### Set due date
 ```bash

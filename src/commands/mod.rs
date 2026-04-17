@@ -1,3 +1,4 @@
+pub mod assign;
 pub mod browse;
 pub mod comment;
 pub mod config;
