@@ -6,7 +6,7 @@ compatibility: opencode
 metadata:
   category: productivity
   tool: rustasana
-  version: 0.4.0
+  version: 0.5.0
 ---
 
 ## What I do
@@ -213,11 +213,14 @@ rustasana comment 2
 
 - **Cache**: Task list is cached for 5 minutes. Use `--refresh` to update.
 - **Filter caches**: Different cache files for different filters:
-  - `~/.asana.cache` - Your assigned tasks
+  - `~/.asana.cache` - Your assigned tasks (default)
   - `~/.asana.cache.project.<project_gid>` - All tasks from a specific project
   - `~/.asana.cache.<user_gid>` - Tasks for a specific user
-- **Indexes**: Task indexes are stable within the cache period but may change after refresh or when switching filters
-- **Index scope**: Task indices from `--project` are only valid when viewing that project's tasks
+- **Project context is critical**: When working with project tasks, ALL commands must use the same `--project` flag
+  - ✅ CORRECT: `rustasana tasks -p 123` then `rustasana done 0 -p 123`
+  - ❌ WRONG: `rustasana tasks -p 123` then `rustasana done 0` (uses wrong cache!)
+- **Context flags**: Most commands accept `--project <GID>` or `--assignee <GID>` to specify cache context
+- **Indexes**: Task indexes are stable within the cache period but may change after refresh or when switching contexts
 - **Configuration**: Settings stored in `~/.asana.yml`
 - **Editor**: Set `$EDITOR` environment variable for comment editing (default: vi/notepad)
 - **Browser**: Set `$BROWSER` environment variable or uses system default

@@ -10,7 +10,7 @@ use clap::{Parser, Subcommand};
 #[derive(Parser)]
 #[command(name = "rustasana")]
 #[command(about = "Rustasana - A blazingly fast Asana CLI client written in Rust", long_about = None)]
-#[command(version = "0.4.0")]
+#[command(version = "0.5.0")]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -63,6 +63,14 @@ enum Commands {
         /// Output as JSON
         #[arg(short, long)]
         json: bool,
+
+        /// Project context (project GID)
+        #[arg(long, conflicts_with = "assignee")]
+        project: Option<String>,
+
+        /// Assignee context (user GID)
+        #[arg(long, conflicts_with = "project")]
+        assignee: Option<String>,
     },
 
     /// Post comment
@@ -70,12 +78,28 @@ enum Commands {
     Comment {
         /// Task index
         index: usize,
+
+        /// Project context (project GID)
+        #[arg(short, long, conflicts_with = "assignee")]
+        project: Option<String>,
+
+        /// Assignee context (user GID)
+        #[arg(short = 'a', long, conflicts_with = "project")]
+        assignee: Option<String>,
     },
 
     /// Complete task
     Done {
         /// Task index
         index: usize,
+
+        /// Project context (project GID)
+        #[arg(short, long, conflicts_with = "assignee")]
+        project: Option<String>,
+
+        /// Assignee context (user GID)
+        #[arg(short = 'a', long, conflicts_with = "project")]
+        assignee: Option<String>,
     },
 
     /// Assign task to a user
@@ -84,6 +108,14 @@ enum Commands {
         index: usize,
         /// User GID, 'me', 'null', or 'unassigned' (to unassign)
         assignee: String,
+
+        /// Project context (project GID)
+        #[arg(short, long, conflicts_with = "assignee_context")]
+        project: Option<String>,
+
+        /// Assignee context (user GID) - which cache to read from
+        #[arg(long, conflicts_with = "project")]
+        assignee_context: Option<String>,
     },
 
     /// Set due date
@@ -92,6 +124,14 @@ enum Commands {
         index: usize,
         /// Due date (YYYY-MM-DD, 'today', or 'tomorrow')
         date: String,
+
+        /// Project context (project GID)
+        #[arg(short, long, conflicts_with = "assignee")]
+        project: Option<String>,
+
+        /// Assignee context (user GID)
+        #[arg(short = 'a', long, conflicts_with = "project")]
+        assignee: Option<String>,
     },
 
     /// Open a task in the web browser
@@ -99,6 +139,14 @@ enum Commands {
     Browse {
         /// Task index
         index: Option<usize>,
+
+        /// Project context (project GID)
+        #[arg(short, long, conflicts_with = "assignee")]
+        project: Option<String>,
+
+        /// Assignee context (user GID)
+        #[arg(short = 'a', long, conflicts_with = "project")]
+        assignee: Option<String>,
     },
 
     /// Download attachment from a task
@@ -113,6 +161,14 @@ enum Commands {
         /// Output file path
         #[arg(short, long)]
         output: Option<String>,
+
+        /// Project context (project GID)
+        #[arg(short, long, conflicts_with = "assignee")]
+        project: Option<String>,
+
+        /// Assignee context (user GID)
+        #[arg(short = 'a', long, conflicts_with = "project")]
+        assignee: Option<String>,
     },
 
     /// Install AI agent skill globally for OpenCode, Claude, Cursor, etc.
@@ -140,17 +196,43 @@ fn main() -> Result<()> {
             index,
             verbose,
             json,
-        } => commands::task::run(index, verbose, json),
-        Commands::Comment { index } => commands::comment::run(index),
-        Commands::Done { index } => commands::done::run(index),
-        Commands::Assign { index, assignee } => commands::assign::run(index, assignee),
-        Commands::Due { index, date } => commands::due::run(index, &date),
-        Commands::Browse { index } => commands::browse::run(index),
+            project,
+            assignee,
+        } => commands::task::run(index, verbose, json, project, assignee),
+        Commands::Comment {
+            index,
+            project,
+            assignee,
+        } => commands::comment::run(index, project, assignee),
+        Commands::Done {
+            index,
+            project,
+            assignee,
+        } => commands::done::run(index, project, assignee),
+        Commands::Assign {
+            index,
+            assignee,
+            project,
+            assignee_context,
+        } => commands::assign::run(index, assignee, project, assignee_context),
+        Commands::Due {
+            index,
+            date,
+            project,
+            assignee,
+        } => commands::due::run(index, &date, project, assignee),
+        Commands::Browse {
+            index,
+            project,
+            assignee,
+        } => commands::browse::run(index, project, assignee),
         Commands::Download {
             task_index,
             attachment,
             output,
-        } => commands::download::run(task_index, attachment, output),
+            project,
+            assignee,
+        } => commands::download::run(task_index, attachment, output, project, assignee),
         Commands::InstallSkill { force } => commands::install_skill::run(force),
     }
 }

@@ -7,17 +7,27 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::time::SystemTime;
 
-pub fn cache_file() -> Result<PathBuf> {
-    let home = dirs::home_dir().context("Unable to find home directory")?;
-    Ok(home.join(".asana.cache"))
-}
-
 pub fn cache_file_with_key(key: &str) -> Result<PathBuf> {
     let home = dirs::home_dir().context("Unable to find home directory")?;
     if key == "me" {
         Ok(home.join(".asana.cache"))
     } else {
         Ok(home.join(format!(".asana.cache.{}", key)))
+    }
+}
+
+/// Generate a consistent cache key based on project or assignee context
+pub fn get_cache_key(project: Option<&str>, assignee: Option<&str>) -> String {
+    if let Some(project_gid) = project {
+        format!("project.{}", project_gid)
+    } else if let Some(assignee_gid) = assignee {
+        if assignee_gid == "me" {
+            "me".to_string()
+        } else {
+            assignee_gid.to_string()
+        }
+    } else {
+        "me".to_string()
     }
 }
 

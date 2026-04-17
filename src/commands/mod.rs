@@ -15,10 +15,42 @@ use crate::utils;
 use anyhow::Result;
 use std::fs;
 use std::io::{BufRead, BufReader};
+use std::path::PathBuf;
 
 // Cache-related helper functions
-pub fn read_cache() -> Result<Vec<(usize, String, String, String)>> {
-    let cache_path = utils::cache_file()?;
+pub fn read_cache_with_context(
+    project: Option<&str>,
+    assignee: Option<&str>,
+) -> Result<Vec<(usize, String, String, String)>> {
+    let cache_key = utils::get_cache_key(project, assignee);
+    let cache_path = utils::cache_file_with_key(&cache_key)?;
+
+    if !cache_path.exists() {
+        let context_msg = if let Some(proj) = project {
+            format!("project {}", proj)
+        } else if let Some(asn) = assignee {
+            format!("assignee {}", asn)
+        } else {
+            "your tasks".to_string()
+        };
+
+        anyhow::bail!(
+            "No cached tasks found for {}.\nPlease run: rustasana tasks{}",
+            context_msg,
+            if project.is_some() {
+                format!(" --project {}", project.unwrap())
+            } else if assignee.is_some() && assignee.unwrap() != "me" {
+                format!(" --assignee {}", assignee.unwrap())
+            } else {
+                String::new()
+            }
+        );
+    }
+
+    read_cache_from_path(&cache_path)
+}
+
+fn read_cache_from_path(cache_path: &PathBuf) -> Result<Vec<(usize, String, String, String)>> {
     let file = fs::File::open(cache_path)?;
     let reader = BufReader::new(file);
 
@@ -42,10 +74,14 @@ pub fn read_cache() -> Result<Vec<(usize, String, String, String)>> {
     Ok(entries)
 }
 
-pub fn find_task_id(index: Option<usize>) -> Result<String> {
+pub fn find_task_id_with_context(
+    index: Option<usize>,
+    project: Option<&str>,
+    assignee: Option<&str>,
+) -> Result<String> {
     let index = index.unwrap_or(0);
 
-    let entries = read_cache()?;
+    let entries = read_cache_with_context(project, assignee)?;
     entries
         .iter()
         .find(|(i, _, _, _)| *i == index)

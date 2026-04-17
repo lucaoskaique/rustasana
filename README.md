@@ -6,6 +6,7 @@ A blazingly fast command-line interface for [Asana](https://asana.com/) written 
 
 - 🚀 Fast and efficient CLI for Asana
 - 💾 Local caching for quick task listing
+- 📁 Project-based task filtering with context-aware commands
 - 👥 Filter tasks by assignee (all, unassigned, or specific user)
 - 👤 Assign tasks to users or yourself
 - 📝 Add comments via your favorite editor
@@ -135,6 +136,37 @@ Output (with --assignee flag - specific user's tasks):
  1 [ 2024-08-21 ] Review pull requests                               [@jane_smith]
 ```
 
+### Working with Project Context
+
+All task index commands support `--project` and `--assignee` flags to specify which cache context to use. This is essential when working with tasks from specific projects.
+
+**Important**: The task index you use must match the context where you listed the tasks.
+
+```bash
+# List tasks from a project
+$ rustasana tasks --project 1210197328049310
+
+# Now operate on those tasks using the same --project flag
+$ rustasana task 0 --project 1210197328049310
+$ rustasana done 0 --project 1210197328049310
+$ rustasana assign 1 me --project 1210197328049310
+$ rustasana due 2 tomorrow --project 1210197328049310
+$ rustasana comment 3 --project 1210197328049310
+$ rustasana browse 4 --project 1210197328049310
+
+# List tasks for a specific assignee
+$ rustasana tasks --assignee 1234567890123456
+
+# Operate on those tasks using --assignee flag
+$ rustasana task 0 --assignee 1234567890123456
+$ rustasana done 0 --assignee 1234567890123456
+```
+
+**Cache Contexts**:
+- Default (no flags): Uses `~/.asana.cache` - your assigned tasks
+- `--project <GID>`: Uses `~/.asana.cache.project.<GID>` - all tasks in that project
+- `--assignee <GID>`: Uses `~/.asana.cache.<GID>` - tasks for that assignee
+
 #### View Task Details
 
 ```bash
@@ -149,6 +181,9 @@ $ rustasana task 0 --verbose
 
 # Output as JSON
 $ rustasana task 0 --json
+
+# View task from project context
+$ rustasana task 0 --project 1210197328049310 --verbose
 ```
 
 #### Complete a Task
@@ -156,6 +191,9 @@ $ rustasana task 0 --json
 ```bash
 $ rustasana done 2
 Task marked as completed!
+
+# Complete task from project context
+$ rustasana done 42 --project 1210197328049310
 ```
 
 #### Assign Task
@@ -176,6 +214,9 @@ Task unassigned (set to no assignee)
 # Alternative unassign syntax
 $ rustasana assign 2 unassigned
 Task unassigned (set to no assignee)
+
+# Assign task from project context
+$ rustasana assign 42 me --project 1210197328049310
 ```
 
 #### Set Due Date
@@ -188,12 +229,18 @@ Due date set to: 2024-08-21
 # Use natural language
 $ rustasana due 5 today
 $ rustasana due 5 tomorrow
+
+# Set due date for task in project context
+$ rustasana due 10 tomorrow --project 1210197328049310
 ```
 
 #### Add Comment
 
 ```bash
 $ rustasana comment 2
+
+# Add comment to task in project context
+$ rustasana comment 42 --project 1210197328049310
 ```
 
 This opens your default editor (set via `$EDITOR` environment variable). Write your comment, save, and close the editor.
