@@ -1,6 +1,6 @@
 [package]
 name = "rustasana"
-version = "0.6.0"
+version = "0.7.0"
 edition = "2021"
 authors = ["Lucas Kaique <me@lucaskaique.com.br>"]
 description = "A blazingly fast command-line interface for Asana written in Rust"
@@ -22,9 +22,11 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 serde_yaml = "0.9"
 anyhow = "1.0"
+thiserror = "1.0"
 chrono = "0.4"
 dirs = "5.0"
 tempfile = "3.10"
+unicode-segmentation = "1.12"
 
 [profile.release]
 strip = true

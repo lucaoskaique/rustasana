@@ -1,6 +1,4 @@
-use crate::api::ApiClient;
-use crate::commands::find_task_id_with_context;
-use crate::config::Config;
+use crate::context::CommandContext;
 use anyhow::Result;
 use std::path::PathBuf;
 
@@ -11,18 +9,15 @@ pub fn run(
     project: Option<String>,
     assignee: Option<String>,
 ) -> Result<()> {
-    let config = Config::load()?;
-    let client = ApiClient::new(&config)?;
+    let ctx = CommandContext::new()?;
 
     // Check if attachment_index_or_gid is a GID or an index
-    let attachment = if attachment_index_or_gid
-        .chars()
-        .all(|c| c.is_numeric() && attachment_index_or_gid.len() < 5)
+    let attachment = if attachment_index_or_gid.chars().all(|c| c.is_numeric())
+        && attachment_index_or_gid.len() < 5
     {
         // It's an index
-        let task_id =
-            find_task_id_with_context(Some(task_index), project.as_deref(), assignee.as_deref())?;
-        let attachments = client.get_attachments(&task_id)?;
+        let task_id = ctx.find_task_id(task_index, project.as_deref(), assignee.as_deref())?;
+        let attachments = ctx.client.get_attachments(&task_id)?;
 
         let index: usize = attachment_index_or_gid
             .parse()
@@ -39,7 +34,7 @@ pub fn run(
         attachments[index].clone()
     } else {
         // It's a GID
-        client.get_attachment(&attachment_index_or_gid)?
+        ctx.client.get_attachment(&attachment_index_or_gid)?
     };
 
     // Determine output path
@@ -57,7 +52,8 @@ pub fn run(
     println!("Downloading: {}", attachment.name);
     println!("To: {}", output_path.display());
 
-    client.download_attachment(&download_url, &output_path)?;
+    ctx.client
+        .download_attachment(&download_url, &output_path)?;
 
     println!("Download complete!");
 

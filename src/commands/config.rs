@@ -1,6 +1,6 @@
 use crate::api::ApiClient;
 use crate::config::Config;
-use crate::utils;
+use crate::prompt;
 use anyhow::Result;
 
 pub fn run() -> Result<()> {
@@ -9,7 +9,7 @@ pub fn run() -> Result<()> {
     println!("  Settings > Apps > Manage Developer Apps > Personal Access Tokens");
     println!("  + Create New Personal Access Token\n");
 
-    let token = utils::prompt("paste your Personal Access Token: ")?;
+    let token = prompt::prompt("paste your Personal Access Token: ")?;
 
     if token.trim().is_empty() {
         anyhow::bail!("Personal Access Token cannot be empty");
@@ -30,7 +30,7 @@ pub fn run() -> Result<()> {
             println!("[{}] {} {}", i, ws.gid, ws.name);
         }
 
-        let index = utils::prompt_number("\nChoose one out of them: ", me.workspaces.len() - 1)?;
+        let index = prompt::prompt_number("\nChoose one out of them: ", me.workspaces.len() - 1)?;
         me.workspaces[index].gid.clone()
     } else if me.workspaces.is_empty() {
         anyhow::bail!("No workspaces found for this account");

@@ -1,12 +1,9 @@
-use crate::api::ApiClient;
-use crate::config::Config;
+use crate::context::CommandContext;
 use anyhow::Result;
 
 pub fn run() -> Result<()> {
-    let config = Config::load()?;
-    let client = ApiClient::new(&config)?;
-
-    let projects = client.get_projects(&config.workspace)?;
+    let ctx = CommandContext::new()?;
+    let projects = ctx.client.get_projects(&ctx.config.workspace)?;
 
     if projects.is_empty() {
         println!("No projects found in this workspace.");

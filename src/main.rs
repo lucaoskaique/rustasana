@@ -1,7 +1,12 @@
 mod api;
+mod cache;
 mod commands;
 mod config;
+mod context;
+mod date_utils;
+mod external;
 mod models;
+mod prompt;
 mod utils;
 
 use anyhow::Result;
@@ -10,7 +15,7 @@ use clap::{Parser, Subcommand};
 #[derive(Parser)]
 #[command(name = "rustasana")]
 #[command(about = "Rustasana - A blazingly fast Asana CLI client written in Rust", long_about = None)]
-#[command(version = "0.6.0")]
+#[command(version = "0.7.0")]
 struct Cli {
     #[command(subcommand)]
     command: Commands,

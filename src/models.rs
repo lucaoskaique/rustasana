@@ -1,12 +1,27 @@
 use serde::{Deserialize, Serialize};
+use std::cmp::Ordering;
+use std::fmt;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+// Type aliases for better code clarity
+pub type TaskId = String;
+pub type Gid = String;
+pub type WorkspaceId = String;
+pub type ProjectId = String;
+pub type UserId = String;
+
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct Base {
     pub gid: String,
     pub name: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+impl fmt::Display for Base {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{} (GID: {})", self.name, self.gid)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct CustomField {
     pub gid: String,
     pub name: String,
@@ -26,7 +41,7 @@ pub struct Attachment {
     pub host: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct Task {
     pub gid: String,
     #[serde(default)]
@@ -59,6 +74,65 @@ pub struct Task {
     pub followers: Option<Vec<Base>>,
 }
 
+impl Task {
+    /// Compare tasks by due date (earlier dates come first, no date comes last)
+    pub fn cmp_by_due_date(&self, other: &Self) -> Ordering {
+        match (&self.due_on, &other.due_on) {
+            (Some(a), Some(b)) => a.cmp(b),
+            (Some(_), None) => Ordering::Less,
+            (None, Some(_)) => Ordering::Greater,
+            (None, None) => Ordering::Equal,
+        }
+    }
+
+    /// Get assignee name or empty string
+    pub fn assignee_name(&self) -> &str {
+        self.assignee
+            .as_ref()
+            .map(|a| a.name.as_str())
+            .unwrap_or("")
+    }
+
+    /// Get due date string or empty string
+    pub fn due_date_str(&self) -> &str {
+        self.due_on.as_deref().unwrap_or("")
+    }
+
+    /// Format assignee for display: [@name] or [unassigned]
+    pub fn format_assignee(&self) -> String {
+        let name = self.assignee_name();
+        if name.is_empty() {
+            "[unassigned]".to_string()
+        } else {
+            format!("[@{}]", name)
+        }
+    }
+}
+
+impl Ord for Task {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.cmp_by_due_date(other)
+    }
+}
+
+impl PartialOrd for Task {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl fmt::Display for Task {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "[{}] {} {}",
+            self.due_date_str(),
+            self.name,
+            self.format_assignee()
+        )
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Story {
     pub gid: String,
@@ -67,6 +141,13 @@ pub struct Story {
     pub story_type: String,
     pub created_at: String,
     pub created_by: Base,
+}
+
+impl fmt::Display for Story {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let text = self.text.as_deref().unwrap_or("[no text]");
+        write!(f, "{}: {}", self.created_by.name, text)
+    }
 }
 
 #[derive(Debug, Deserialize)]

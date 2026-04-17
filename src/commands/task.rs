@@ -1,6 +1,4 @@
-use crate::api::ApiClient;
-use crate::commands::find_task_id_with_context;
-use crate::config::Config;
+use crate::context::CommandContext;
 use crate::models::Story;
 use anyhow::Result;
 
@@ -11,11 +9,9 @@ pub fn run(
     project: Option<String>,
     assignee: Option<String>,
 ) -> Result<()> {
-    let config = Config::load()?;
-    let client = ApiClient::new(&config)?;
-
-    let task_id = find_task_id_with_context(index, project.as_deref(), assignee.as_deref())?;
-    let task = client.get_task(&task_id)?;
+    let ctx = CommandContext::new()?;
+    let task_id = ctx.find_task_id(index.unwrap_or(0), project.as_deref(), assignee.as_deref())?;
+    let task = ctx.client.get_task(&task_id)?;
 
     if json {
         println!("{}", serde_json::to_string_pretty(&task)?);
@@ -35,7 +31,7 @@ pub fn run(
     }
 
     // Show attachments
-    if let Ok(attachments) = client.get_attachments(&task_id) {
+    if let Ok(attachments) = ctx.client.get_attachments(&task_id) {
         if !attachments.is_empty() {
             println!("\nAttachments:");
             for (i, attachment) in attachments.iter().enumerate() {
@@ -46,7 +42,7 @@ pub fn run(
     }
 
     if verbose {
-        let stories = client.get_stories(&task_id)?;
+        let stories = ctx.client.get_stories(&task_id)?;
 
         println!();
         for story in stories {

@@ -1,9 +1,11 @@
-use crate::api::ApiClient;
-use crate::config::Config;
-use crate::utils;
+use crate::cache::TaskCache;
+use crate::context::CommandContext;
 use anyhow::Result;
+use std::time::Duration;
+use unicode_segmentation::UnicodeSegmentation;
 
 const CACHE_DURATION_SECS: u64 = 300; // 5 minutes
+const MAX_TASK_NAME_LENGTH: usize = 50;
 
 pub fn run(
     no_cache: bool,
@@ -12,29 +14,27 @@ pub fn run(
     project: Option<String>,
     all: bool,
 ) -> Result<()> {
-    // Determine cache key based on filter mode
-    let cache_key = if let Some(ref project_id) = project {
-        format!("project.{}", project_id)
-    } else if let Some(ref assignee_id) = assignee {
-        assignee_id.to_string()
-    } else {
-        "me".to_string()
-    };
+    let cache = TaskCache::new(project.as_deref(), assignee.as_deref());
+    let cache_duration = Duration::from_secs(CACHE_DURATION_SECS);
 
     if no_cache {
         fetch_and_display(false, assignee, project, all)?;
-    } else if utils::is_cache_older_with_key(CACHE_DURATION_SECS, &cache_key)? || refresh {
+    } else if cache.is_older_than(cache_duration)? || refresh {
         fetch_and_display(true, assignee, project, all)?;
     } else {
         // Use cache
-        let entries = read_cache_with_key(&cache_key)?;
-        for (index, _, due_on, name, assignee_name) in entries {
-            let assignee_display = format_assignee(&assignee_name);
+        let entries = cache.read()?;
+        for entry in entries {
+            let assignee_display = if entry.assignee_name.is_empty() {
+                "[unassigned]".to_string()
+            } else {
+                format!("[@{}]", entry.assignee_name)
+            };
             println!(
                 "{:2} [ {:10} ] {:50} {}",
-                index,
-                due_on,
-                truncate(&name, 50),
+                entry.index,
+                entry.due_on,
+                truncate(&entry.name, MAX_TASK_NAME_LENGTH),
                 assignee_display
             );
         }
@@ -49,13 +49,12 @@ fn fetch_and_display(
     project: Option<String>,
     all: bool,
 ) -> Result<()> {
-    let config = Config::load()?;
-    let client = ApiClient::new(&config)?;
+    let ctx = CommandContext::new()?;
 
     // Fetch tasks based on filter type
     let tasks = if let Some(ref project_id) = project {
         // Fetch all tasks from a specific project
-        match client.get_project_tasks(project_id, all) {
+        match ctx.client.get_project_tasks(project_id, all) {
             Ok(tasks) => tasks,
             Err(e) => {
                 let error_msg = e.to_string();
@@ -79,7 +78,10 @@ fn fetch_and_display(
         };
 
         // Fetch tasks with error handling
-        match client.get_tasks(&config.workspace, all, assignee_filter) {
+        match ctx
+            .client
+            .get_tasks(&ctx.config.workspace, all, assignee_filter)
+        {
             Ok(tasks) => tasks,
             Err(e) => {
                 let error_msg = e.to_string();
@@ -113,102 +115,29 @@ fn fetch_and_display(
     }
 
     if save_cache {
-        let cache_key = if let Some(ref project_id) = project {
-            format!("project.{}", project_id)
-        } else if let Some(ref assignee_id) = assignee {
-            assignee_id.to_string()
-        } else {
-            "me".to_string()
-        };
-        write_cache_with_key(&tasks, &cache_key)?;
+        let cache = TaskCache::new(project.as_deref(), assignee.as_deref());
+        cache.write(&tasks)?;
     }
 
     for (i, task) in tasks.iter().enumerate() {
-        let due_on = task.due_on.as_deref().unwrap_or("");
-        let assignee_name = task
-            .assignee
-            .as_ref()
-            .map(|a| a.name.as_str())
-            .unwrap_or("");
-        let assignee_display = format_assignee(assignee_name);
         println!(
             "{:2} [ {:10} ] {:50} {}",
             i,
-            due_on,
-            truncate(&task.name, 50),
-            assignee_display
+            task.due_date_str(),
+            truncate(&task.name, MAX_TASK_NAME_LENGTH),
+            task.format_assignee()
         );
     }
 
     Ok(())
 }
 
-fn format_assignee(assignee_name: &str) -> String {
-    if assignee_name.is_empty() {
-        "[unassigned]".to_string()
-    } else {
-        format!("[@{}]", assignee_name)
-    }
-}
-
 fn truncate(s: &str, max_len: usize) -> String {
-    let char_count = s.chars().count();
-    if char_count <= max_len {
+    let graphemes: Vec<&str> = s.graphemes(true).collect();
+    if graphemes.len() <= max_len {
         format!("{:width$}", s, width = max_len)
     } else {
-        let truncated: String = s.chars().take(max_len - 3).collect();
+        let truncated: String = graphemes[..max_len - 3].join("");
         format!("{:width$}...", truncated, width = max_len)
     }
-}
-
-fn read_cache_with_key(key: &str) -> Result<Vec<(usize, String, String, String, String)>> {
-    let cache_path = utils::cache_file_with_key(key)?;
-    if !cache_path.exists() {
-        anyhow::bail!("Cache file not found");
-    }
-
-    let file = std::fs::File::open(cache_path)?;
-    let reader = std::io::BufReader::new(file);
-    use std::io::BufRead;
-
-    let mut entries = Vec::new();
-    for line in reader.lines() {
-        let line = line?;
-        if line.is_empty() {
-            continue;
-        }
-
-        let parts: Vec<&str> = line.split(':').collect();
-        if parts.len() >= 5 {
-            let index = parts[0].parse::<usize>().unwrap_or(0);
-            let gid = parts[1].to_string();
-            let due_on = parts[2].to_string();
-            let assignee = parts[3].to_string();
-            let name = parts[4..].join(":");
-            entries.push((index, gid, due_on, name, assignee));
-        }
-    }
-
-    Ok(entries)
-}
-
-fn write_cache_with_key(tasks: &[crate::models::Task], key: &str) -> Result<()> {
-    let cache_path = utils::cache_file_with_key(key)?;
-    let mut content = String::new();
-
-    for (i, task) in tasks.iter().enumerate() {
-        let due_on = task.due_on.as_deref().unwrap_or("");
-        let assignee = task
-            .assignee
-            .as_ref()
-            .map(|a| a.name.as_str())
-            .unwrap_or("");
-        content.push_str(&format!(
-            "{}:{}:{}:{}:{}\n",
-            i, task.gid, due_on, assignee, task.name
-        ));
-    }
-
-    std::fs::write(cache_path, content)?;
-    Ok(())
 }

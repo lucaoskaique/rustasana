@@ -1,19 +1,15 @@
-use crate::api::ApiClient;
-use crate::commands::find_task_id_with_context;
-use crate::config::Config;
-use crate::utils;
+use crate::context::CommandContext;
+use crate::external;
 use anyhow::Result;
 
 pub fn run(index: usize, project: Option<String>, assignee: Option<String>) -> Result<()> {
-    let config = Config::load()?;
-    let client = ApiClient::new(&config)?;
-
-    let task_id = find_task_id_with_context(Some(index), project.as_deref(), assignee.as_deref())?;
+    let ctx = CommandContext::new()?;
+    let task_id = ctx.find_task_id(index, project.as_deref(), assignee.as_deref())?;
 
     // Open editor for comment
     let initial_content =
         "\n# Write your comment above this line\n# Lines starting with # will be ignored";
-    let content = utils::open_editor(initial_content)?;
+    let content = external::open_editor(initial_content)?;
 
     // Filter out comment lines and empty lines
     let comment: Vec<&str> = content
@@ -28,7 +24,7 @@ pub fn run(index: usize, project: Option<String>, assignee: Option<String>) -> R
         return Ok(());
     }
 
-    client.add_comment(&task_id, &comment)?;
+    ctx.client.add_comment(&task_id, &comment)?;
     println!("Comment added successfully!");
 
     Ok(())

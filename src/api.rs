@@ -9,6 +9,54 @@ const API_BASE: &str = "https://app.asana.com/api/1.0";
 const USER_AGENT: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) \
                           AppleWebKit/537.36 (KHTML, like Gecko) \
                           Chrome/36.0.1985.125 Safari/537.36";
+const OPT_FIELDS: &str = "name,completed,due_on,assignee,assignee.name";
+const API_PAGE_SIZE: usize = 100;
+
+/// Builder for constructing task query URLs
+struct TaskQueryBuilder {
+    workspace: String,
+    assignee: Option<String>,
+    include_completed: bool,
+}
+
+impl TaskQueryBuilder {
+    fn new(workspace: impl Into<String>) -> Self {
+        Self {
+            workspace: workspace.into(),
+            assignee: None,
+            include_completed: false,
+        }
+    }
+
+    fn assignee(mut self, assignee: impl Into<String>) -> Self {
+        self.assignee = Some(assignee.into());
+        self
+    }
+
+    fn include_completed(mut self, include: bool) -> Self {
+        self.include_completed = include;
+        self
+    }
+
+    fn build(self) -> String {
+        let mut params = vec![
+            format!("workspace={}", self.workspace),
+            format!("opt_fields={}", OPT_FIELDS),
+        ];
+
+        if let Some(assignee) = self.assignee {
+            params.push(format!("assignee={}", assignee));
+        } else {
+            params.push("assignee=me".to_string());
+        }
+
+        if !self.include_completed {
+            params.push("completed_since=now".to_string());
+        }
+
+        format!("/tasks?{}", params.join("&"))
+    }
+}
 
 pub struct ApiClient {
     client: Client,
@@ -28,8 +76,12 @@ impl ApiClient {
         })
     }
 
+    fn build_url(&self, path: &str) -> String {
+        format!("{}{}", API_BASE, path)
+    }
+
     fn get(&self, path: &str) -> Result<String> {
-        let url = format!("{}{}", API_BASE, path);
+        let url = self.build_url(path);
         let response = self
             .client
             .get(&url)
@@ -41,7 +93,7 @@ impl ApiClient {
     }
 
     fn post(&self, path: &str, data: serde_json::Value) -> Result<String> {
-        let url = format!("{}{}", API_BASE, path);
+        let url = self.build_url(path);
         let response = self
             .client
             .post(&url)
@@ -54,7 +106,7 @@ impl ApiClient {
     }
 
     fn put(&self, path: &str, data: serde_json::Value) -> Result<String> {
-        let url = format!("{}{}", API_BASE, path);
+        let url = self.build_url(path);
         let response = self
             .client
             .put(&url)
@@ -98,40 +150,13 @@ impl ApiClient {
         with_completed: bool,
         assignee_filter: Option<&str>,
     ) -> Result<Vec<Task>> {
-        let path = match assignee_filter {
-            Some(assignee) => {
-                // For specific assignee (GID)
-                if with_completed {
-                    // Include both completed and incomplete
-                    format!(
-                        "/tasks?workspace={}&assignee={}&opt_fields=name,completed,due_on,assignee,assignee.name",
-                        workspace, assignee
-                    )
-                } else {
-                    // Only incomplete tasks
-                    format!(
-                        "/tasks?workspace={}&assignee={}&opt_fields=name,completed,due_on,assignee,assignee.name&completed_since=now",
-                        workspace, assignee
-                    )
-                }
-            }
-            None => {
-                // Default: fetch tasks assigned to me
-                if with_completed {
-                    // Include both completed and incomplete
-                    format!(
-                        "/tasks?workspace={}&assignee=me&opt_fields=name,completed,due_on,assignee,assignee.name",
-                        workspace
-                    )
-                } else {
-                    // Only incomplete tasks
-                    format!(
-                        "/tasks?workspace={}&assignee=me&opt_fields=name,completed,due_on,assignee,assignee.name&completed_since=now",
-                        workspace
-                    )
-                }
-            }
-        };
+        let mut builder = TaskQueryBuilder::new(workspace).include_completed(with_completed);
+
+        if let Some(assignee) = assignee_filter {
+            builder = builder.assignee(assignee);
+        }
+
+        let path = builder.build();
 
         let body = self.get(&path)?;
         let wrapper: DataWrapper<Vec<Task>> =
@@ -139,12 +164,7 @@ impl ApiClient {
 
         // Sort tasks by due date
         let mut tasks = wrapper.data;
-        tasks.sort_by(|a, b| match (&a.due_on, &b.due_on) {
-            (Some(a_due), Some(b_due)) => a_due.cmp(b_due),
-            (Some(_), None) => std::cmp::Ordering::Less,
-            (None, Some(_)) => std::cmp::Ordering::Greater,
-            (None, None) => std::cmp::Ordering::Equal,
-        });
+        tasks.sort();
 
         Ok(tasks)
     }
@@ -158,26 +178,26 @@ impl ApiClient {
                 // Include both completed and incomplete tasks
                 if let Some(ref offset_val) = offset {
                     format!(
-                        "/projects/{}/tasks?opt_fields=name,completed,due_on,assignee,assignee.name&limit=100&offset={}",
-                        project_id, offset_val
+                        "/projects/{}/tasks?opt_fields={}&limit={}&offset={}",
+                        project_id, OPT_FIELDS, API_PAGE_SIZE, offset_val
                     )
                 } else {
                     format!(
-                        "/projects/{}/tasks?opt_fields=name,completed,due_on,assignee,assignee.name&limit=100",
-                        project_id
+                        "/projects/{}/tasks?opt_fields={}&limit={}",
+                        project_id, OPT_FIELDS, API_PAGE_SIZE
                     )
                 }
             } else {
                 // Only incomplete tasks
                 if let Some(ref offset_val) = offset {
                     format!(
-                        "/projects/{}/tasks?opt_fields=name,completed,due_on,assignee,assignee.name&completed_since=now&limit=100&offset={}",
-                        project_id, offset_val
+                        "/projects/{}/tasks?opt_fields={}&completed_since=now&limit={}&offset={}",
+                        project_id, OPT_FIELDS, API_PAGE_SIZE, offset_val
                     )
                 } else {
                     format!(
-                        "/projects/{}/tasks?opt_fields=name,completed,due_on,assignee,assignee.name&completed_since=now&limit=100",
-                        project_id
+                        "/projects/{}/tasks?opt_fields={}&completed_since=now&limit={}",
+                        project_id, OPT_FIELDS, API_PAGE_SIZE
                     )
                 }
             };
@@ -189,9 +209,9 @@ impl ApiClient {
                 serde_json::from_str(&body).context("Failed to parse project tasks response")?;
 
             // Extract tasks
-            if let Some(data) = response.get("data") {
-                let tasks: Vec<Task> = serde_json::from_value(data.clone())
-                    .context("Failed to parse tasks from data")?;
+            if let Some(data) = response.get("data").cloned() {
+                let tasks: Vec<Task> =
+                    serde_json::from_value(data).context("Failed to parse tasks from data")?;
                 all_tasks.extend(tasks);
             }
 
@@ -211,12 +231,7 @@ impl ApiClient {
         }
 
         // Sort tasks by due date
-        all_tasks.sort_by(|a, b| match (&a.due_on, &b.due_on) {
-            (Some(a_due), Some(b_due)) => a_due.cmp(b_due),
-            (Some(_), None) => std::cmp::Ordering::Less,
-            (None, Some(_)) => std::cmp::Ordering::Greater,
-            (None, None) => std::cmp::Ordering::Equal,
-        });
+        all_tasks.sort();
 
         Ok(all_tasks)
     }
